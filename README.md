@@ -32,3 +32,12 @@ This runs arbitrary code. eval(), run_bash(), no sandbox, prompt injection risk,
 ## License
 
 MIT
+## Skills
+
+Self-modifying Python scripts the agent can create, run, and update.
+
+    save_skill("git_status", "result = run_bash(\"git status\")\\nprint(result[\"stdout\"])")
+    run_skill("git_status")
+    list_skills()
+
+Skills are stored in skills/*.py and have access to run_bash, read_file, write_file.
