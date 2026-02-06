@@ -2,6 +2,9 @@ import json, re, subprocess
 from pathlib import Path
 from claudette import Chat
 
+SKILLS_DIR = Path('skills')
+SKILLS_DIR.mkdir(exist_ok=True)
+
 SYSTEM_PROMPT = """You convert natural language task descriptions into structured task graphs.
 Output JSON with this schema:
 {"tasks": [{"id": "task_name", "depends_on": [...], "run_on": "success|failure|always"}]}
@@ -16,6 +19,10 @@ TOOLS_PROMPT = """You have these tools:
 - run_bash(cmd) - execute bash command, returns {stdout, stderr, code}
 - read_file(path) - read file contents
 - write_file(path, content) - write content to file
+- list_skills() - list available skills (.py files)
+- load_skill(name) - view a skill's code
+- save_skill(name, content) - create/update a skill as Python code
+- run_skill(name) - execute a skill
 To use a tool, respond with ONLY a Python function call, no markdown."""
 
 def extract_json(text):
@@ -28,18 +35,24 @@ def run_bash(cmd):
 
 def read_file(path): return Path(path).read_text()
 def write_file(path, content): Path(path).write_text(content)
+def list_skills(): return [f.stem for f in SKILLS_DIR.glob('*.py')]
+def load_skill(name): return (SKILLS_DIR/f'{name}.py').read_text()
+def save_skill(name, content): (SKILLS_DIR/f'{name}.py').write_text(content)
+def run_skill(name): return exec(load_skill(name), {'run_bash': run_bash, 'read_file': read_file, 'write_file': write_file})
 
 def parse_task_graph(description, model="claude-sonnet-4-20250514"):
     chat = Chat(model=model, sp=SYSTEM_PROMPT)
     return json.loads(extract_json(chat(description).content[0].text))
 
 def make_tool_task_fn(model="claude-sonnet-4-20250514", fail_tasks=None):
-    fail_tasks, tools, context = fail_tasks or [], {'run_bash': run_bash, 'read_file': read_file, 'write_file': write_file}, {}
+    fail_tasks, tools, context = fail_tasks or [], dict(run_bash=run_bash, read_file=read_file, write_file=write_file, list_skills=list_skills, load_skill=load_skill, save_skill=save_skill, run_skill=run_skill), {}
     def task_fn(task_id):
         if task_id in fail_tasks: return (print(f"[{task_id}]: FAILED"), "failure")[1]
         chat = Chat(model=model, sp=TOOLS_PROMPT)
         ctx_str = "\n".join(f"{k}: {v}" for k,v in context.items()) if context else "None"
-        call = chat(f"Previous results:\n{ctx_str}\n\nExecute: {task_id}. Respond with ONLY the function call, no markdown.").content[0].text.strip()
+        skills = list_skills()
+        skills_str = f"Available skills: {skills}" if skills else "No skills yet"
+        call = chat(f"Previous results:\n{ctx_str}\n\n{skills_str}\n\nExecute: {task_id}. Respond with ONLY the function call, no markdown.").content[0].text.strip()
         print(f"[{task_id}]: {call}")
         try: result = eval(call, tools)
         except Exception as e: return (print(f"  Error: {e}"), "failure")[1]
