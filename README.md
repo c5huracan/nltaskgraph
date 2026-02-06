@@ -41,3 +41,9 @@ Self-modifying Python scripts the agent can create, run, and update.
     list_skills()
 
 Skills are stored in skills/*.py and have access to run_bash, read_file, write_file.
+
+## Retry with Error Feedback
+
+Ralph-style: if a task fails, the agent gets error feedback and tries a different approach.
+
+    go("run a flaky task", max_retries=3)
