@@ -27,7 +27,7 @@ Natural language to task graph to execution. A minimal agent harness.
 
 This runs arbitrary code. eval(), run_bash(), no sandbox, prompt injection risk, no undo.
 
-**Do NOT run on production systems. You have been warned**
+**Do NOT run on production systems. You have been warned!!**
 
 ## License
 
